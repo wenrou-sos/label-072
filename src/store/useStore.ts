@@ -272,30 +272,76 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   deleteTask: (taskId) => {
+    const task = get().tasks.find((t) => t.id === taskId);
+    const workingStatuses: TaskStatus[] = ['assigned', 'accepted', 'working'];
+    const isWorkingTask = task && workingStatuses.includes(task.status);
     set((state) => ({
       tasks: state.tasks.filter((t) => t.id !== taskId),
+      machines: isWorkingTask && task?.machineId
+        ? state.machines.map((m) =>
+            m.id === task.machineId && m.status === 'working'
+              ? { ...m, status: 'idle' as const }
+              : m
+          )
+        : state.machines,
     }));
   },
 
   batchDeleteTasks: (taskIds) => {
+    const tasksToDelete = get().tasks.filter((t) => taskIds.includes(t.id));
+    const workingStatuses: TaskStatus[] = ['assigned', 'accepted', 'working'];
+    const workingMachineIds = tasksToDelete
+      .filter((t) => workingStatuses.includes(t.status) && t.machineId)
+      .map((t) => t.machineId);
     set((state) => ({
       tasks: state.tasks.filter((t) => !taskIds.includes(t.id)),
+      machines: workingMachineIds.length > 0
+        ? state.machines.map((m) =>
+            workingMachineIds.includes(m.id) && m.status === 'working'
+              ? { ...m, status: 'idle' as const }
+              : m
+          )
+        : state.machines,
     }));
   },
 
   updateTaskStatus: (taskId, status) => {
+    const task = get().tasks.find((t) => t.id === taskId);
+    const workingStatuses: TaskStatus[] = ['assigned', 'accepted', 'working'];
+    const wasWorking = task && workingStatuses.includes(task.status);
+    const isNowWorking = workingStatuses.includes(status);
     set((state) => ({
       tasks: state.tasks.map((t) =>
         t.id === taskId ? { ...t, status } : t
       ),
+      machines: wasWorking && !isNowWorking && task?.machineId
+        ? state.machines.map((m) =>
+            m.id === task.machineId && m.status === 'working'
+              ? { ...m, status: 'idle' as const }
+              : m
+          )
+        : state.machines,
     }));
   },
 
   batchUpdateTaskStatus: (taskIds, status) => {
+    const tasksToUpdate = get().tasks.filter((t) => taskIds.includes(t.id));
+    const workingStatuses: TaskStatus[] = ['assigned', 'accepted', 'working'];
+    const isNowWorking = workingStatuses.includes(status);
+    const machineIdsToRelease = tasksToUpdate
+      .filter((t) => workingStatuses.includes(t.status) && !isNowWorking && t.machineId)
+      .map((t) => t.machineId);
     set((state) => ({
       tasks: state.tasks.map((t) =>
         taskIds.includes(t.id) ? { ...t, status } : t
       ),
+      machines: machineIdsToRelease.length > 0
+        ? state.machines.map((m) =>
+            machineIdsToRelease.includes(m.id) && m.status === 'working'
+              ? { ...m, status: 'idle' as const }
+              : m
+          )
+        : state.machines,
     }));
   },
 
