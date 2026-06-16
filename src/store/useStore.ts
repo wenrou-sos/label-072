@@ -235,7 +235,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({
       tasks: state.tasks.map((t) =>
         t.id === taskId
-          ? { ...t, status: 'accepted' as const, startTime: new Date().toISOString() }
+          ? { ...t, status: 'working' as const, startTime: new Date().toISOString() }
           : t
       ),
       machines: state.machines.map((m) =>

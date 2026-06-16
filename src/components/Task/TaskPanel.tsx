@@ -19,16 +19,19 @@ const statusTabs: { value: TaskStatus | 'all'; label: string }[] = [
 ];
 
 export const TaskPanel = () => {
-  const { tasks, fields, machines, createTask, setShowTaskModal, showTaskModal, acceptTask } = useAppStore();
+  const { tasks, fields, machines, createTask, setShowTaskModal, showTaskModal, acceptTask, completeTask } = useAppStore();
   const [activeTab, setActiveTab] = useState<TaskStatus | 'all'>('all');
   const [step, setStep] = useState(1);
   const [selectedField, setSelectedField] = useState('');
   const [selectedWorkType, setSelectedWorkType] = useState<WorkType | ''>('');
   const [scheduledTime, setScheduledTime] = useState('');
 
+  const inProgressStatuses: TaskStatus[] = ['assigned', 'accepted', 'working'];
   const filteredTasks = activeTab === 'all'
     ? tasks
-    : tasks.filter((t) => t.status === activeTab);
+    : activeTab === 'working'
+      ? tasks.filter((t) => inProgressStatuses.includes(t.status))
+      : tasks.filter((t) => t.status === activeTab);
 
   const getFieldName = (id: string) => fields.find((f) => f.id === id)?.name || '未知地块';
   const getMachineName = (id: string) => machines.find((m) => m.id === id)?.name || '未分配';
@@ -120,6 +123,15 @@ export const TaskPanel = () => {
                   className="mt-2 w-full py-1.5 bg-green-600 text-white text-xs rounded-md hover:bg-green-700 transition-colors"
                 >
                   模拟接单
+                </button>
+              )}
+
+              {task.status === 'working' && (
+                <button
+                  onClick={() => completeTask(task.id)}
+                  className="mt-2 w-full py-1.5 bg-blue-600 text-white text-xs rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  模拟完成
                 </button>
               )}
             </div>
