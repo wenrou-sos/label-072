@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useAppStore } from '../../store/useStore';
 import { getWorkTypeName, getWorkTypeColor, getStatusName, getStatusColor, formatArea } from '../../utils/format';
 import type { WorkType, TaskStatus } from '../../types';
-import { Plus, X, MapPin, Wrench, Clock, CheckCircle, ArrowRight } from 'lucide-react';
+import { Plus, X, MapPin, Wrench, Clock, CheckCircle, ArrowRight, Trash2, Edit3, CheckSquare, Square } from 'lucide-react';
 
 const workTypeOptions: { value: WorkType; label: string; icon: string }[] = [
   { value: 'plowing', label: '耕地', icon: '🚜' },
@@ -18,13 +18,25 @@ const statusTabs: { value: TaskStatus | 'all'; label: string }[] = [
   { value: 'completed', label: '已完成' },
 ];
 
+const batchStatusOptions: { value: TaskStatus; label: string; color: string }[] = [
+  { value: 'pending', label: '待分配', color: '#6B7280' },
+  { value: 'assigned', label: '已分配', color: '#3B82F6' },
+  { value: 'accepted', label: '已接受', color: '#8B5CF6' },
+  { value: 'working', label: '进行中', color: '#F59E0B' },
+  { value: 'completed', label: '已完成', color: '#10B981' },
+];
+
 export const TaskPanel = () => {
-  const { tasks, fields, machines, createTask, setShowTaskModal, showTaskModal, acceptTask, completeTask } = useAppStore();
+  const { tasks, fields, machines, createTask, setShowTaskModal, showTaskModal, acceptTask, completeTask, batchDeleteTasks, batchUpdateTaskStatus } = useAppStore();
   const [activeTab, setActiveTab] = useState<TaskStatus | 'all'>('all');
   const [step, setStep] = useState(1);
   const [selectedField, setSelectedField] = useState('');
   const [selectedWorkType, setSelectedWorkType] = useState<WorkType | ''>('');
   const [scheduledTime, setScheduledTime] = useState('');
+  const [batchMode, setBatchMode] = useState(false);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showStatusModal, setShowStatusModal] = useState(false);
 
   const inProgressStatuses: TaskStatus[] = ['assigned', 'accepted', 'working'];
   const filteredTasks = activeTab === 'all'
@@ -32,6 +44,46 @@ export const TaskPanel = () => {
     : activeTab === 'working'
       ? tasks.filter((t) => inProgressStatuses.includes(t.status))
       : tasks.filter((t) => t.status === activeTab);
+
+  const allSelected = useMemo(() => {
+    return filteredTasks.length > 0 && filteredTasks.every((t) => selectedTaskIds.includes(t.id));
+  }, [filteredTasks, selectedTaskIds]);
+
+  const handleToggleSelect = (taskId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedTaskIds((prev) =>
+      prev.includes(taskId)
+        ? prev.filter((id) => id !== taskId)
+        : [...prev, taskId]
+    );
+  };
+
+  const handleToggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedTaskIds([]);
+    } else {
+      setSelectedTaskIds(filteredTasks.map((t) => t.id));
+    }
+  };
+
+  const handleBatchDelete = () => {
+    batchDeleteTasks(selectedTaskIds);
+    setSelectedTaskIds([]);
+    setShowDeleteConfirm(false);
+    setBatchMode(false);
+  };
+
+  const handleBatchUpdateStatus = (status: TaskStatus) => {
+    batchUpdateTaskStatus(selectedTaskIds, status);
+    setSelectedTaskIds([]);
+    setShowStatusModal(false);
+    setBatchMode(false);
+  };
+
+  const exitBatchMode = () => {
+    setBatchMode(false);
+    setSelectedTaskIds([]);
+  };
 
   const getFieldName = (id: string) => fields.find((f) => f.id === id)?.name || '未知地块';
   const getMachineName = (id: string) => machines.find((m) => m.id === id)?.name || '未分配';
@@ -52,20 +104,80 @@ export const TaskPanel = () => {
       <div className="h-full flex flex-col bg-white rounded-lg shadow-md overflow-hidden relative z-10">
         <div className="p-4 border-b border-gray-100 flex items-center justify-between">
           <h2 className="text-lg font-bold text-gray-800">任务管理</h2>
-          <button
-            onClick={() => setShowTaskModal(true)}
-            className="flex items-center gap-1 px-3 py-1.5 bg-green-700 text-white text-sm rounded-lg hover:bg-green-800 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            新建任务
-          </button>
+          <div className="flex items-center gap-2">
+            {!batchMode ? (
+              <>
+                <button
+                  onClick={() => setBatchMode(true)}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  <Edit3 className="w-4 h-4" />
+                  批量操作
+                </button>
+                <button
+                  onClick={() => setShowTaskModal(true)}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-green-700 text-white text-sm rounded-lg hover:bg-green-800 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  新建任务
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={exitBatchMode}
+                className="flex items-center gap-1 px-3 py-1.5 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                <X className="w-4 h-4" />
+                取消
+              </button>
+            )}
+          </div>
         </div>
+
+        {batchMode && (
+          <div className="px-4 py-3 border-b border-gray-100 bg-blue-50 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleToggleSelectAll}
+                className="flex items-center gap-1 text-sm text-gray-700 hover:text-blue-600 transition-colors"
+              >
+                {allSelected ? (
+                  <CheckSquare className="w-5 h-5 text-blue-600" />
+                ) : (
+                  <Square className="w-5 h-5 text-gray-400" />
+                )}
+                <span className="font-medium">全选</span>
+              </button>
+              <span className="text-sm text-gray-600">
+                已选中 <span className="font-bold text-blue-600">{selectedTaskIds.length}</span> 项
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowStatusModal(true)}
+                disabled={selectedTaskIds.length === 0}
+                className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Edit3 className="w-4 h-4" />
+                更改状态
+              </button>
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={selectedTaskIds.length === 0}
+                className="flex items-center gap-1 px-3 py-1.5 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Trash2 className="w-4 h-4" />
+                删除
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="px-4 py-2 border-b border-gray-100 flex gap-1">
           {statusTabs.map((tab) => (
             <button
               key={tab.value}
-              onClick={() => setActiveTab(tab.value)}
+              onClick={() => { setActiveTab(tab.value); setSelectedTaskIds([]); }}
               className={`px-3 py-1 text-xs rounded-md transition-colors ${
                 activeTab === tab.value
                   ? 'bg-green-100 text-green-800 font-medium'
@@ -81,10 +193,26 @@ export const TaskPanel = () => {
           {filteredTasks.map((task) => (
             <div
               key={task.id}
-              className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+              className={`p-3 rounded-lg transition-colors cursor-pointer ${
+                selectedTaskIds.includes(task.id)
+                  ? 'bg-blue-50 border-2 border-blue-300'
+                  : 'bg-gray-50 hover:bg-gray-100'
+              }`}
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
+                  {batchMode && (
+                    <button
+                      onClick={(e) => handleToggleSelect(task.id, e)}
+                      className="flex-shrink-0"
+                    >
+                      {selectedTaskIds.includes(task.id) ? (
+                        <CheckSquare className="w-5 h-5 text-blue-600" />
+                      ) : (
+                        <Square className="w-5 h-5 text-gray-400 hover:text-gray-600" />
+                      )}
+                    </button>
+                  )}
                   <span className="text-lg">{workTypeOptions.find((o) => o.value === task.workType)?.icon}</span>
                   <span className="font-medium text-gray-800 text-sm">{getFieldName(task.fieldId)}</span>
                 </div>
@@ -267,6 +395,91 @@ export const TaskPanel = () => {
                   创建任务
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
+          <div className="bg-white rounded-xl w-full max-w-md mx-4 shadow-2xl">
+            <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-800">确认删除</h3>
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="text-center mb-4">
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-100 flex items-center justify-center">
+                  <Trash2 className="w-8 h-8 text-red-600" />
+                </div>
+                <p className="text-gray-800 font-medium mb-2">确定要删除选中的任务吗？</p>
+                <p className="text-sm text-gray-500">
+                  您即将删除 <span className="font-bold text-red-600">{selectedTaskIds.length}</span> 个任务，此操作不可撤销。
+                </p>
+              </div>
+            </div>
+            <div className="p-4 border-t border-gray-100 flex justify-end gap-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleBatchDelete}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                确认删除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showStatusModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
+          <div className="bg-white rounded-xl w-full max-w-md mx-4 shadow-2xl">
+            <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-800">批量更改状态</h3>
+              <button
+                onClick={() => setShowStatusModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6">
+              <p className="text-sm text-gray-500 mb-4">
+                已选中 <span className="font-bold text-blue-600">{selectedTaskIds.length}</span> 个任务，请选择目标状态：
+              </p>
+              <div className="space-y-2">
+                {batchStatusOptions.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => handleBatchUpdateStatus(opt.value)}
+                    className="w-full p-3 rounded-lg border-2 border-gray-200 hover:border-gray-300 transition-all flex items-center gap-3"
+                  >
+                    <div
+                      className="w-4 h-4 rounded-full"
+                      style={{ backgroundColor: opt.color }}
+                    />
+                    <span className="font-medium text-gray-800">{opt.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="p-4 border-t border-gray-100 flex justify-end">
+              <button
+                onClick={() => setShowStatusModal(false)}
+                className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                取消
+              </button>
             </div>
           </div>
         </div>

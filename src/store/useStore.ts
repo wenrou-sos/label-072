@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Machine, Field, Task, TrackPoint, DailyStats, MachineStatus, MachineType, WorkType } from '../types';
+import type { Machine, Field, Task, TrackPoint, DailyStats, MachineStatus, MachineType, WorkType, TaskStatus } from '../types';
 import { mockMachines } from '../data/machines';
 import { mockFields } from '../data/fields';
 import { mockTasks } from '../data/tasks';
@@ -51,6 +51,10 @@ interface AppState {
   assignTask: (taskId: string, machineId: string) => void;
   acceptTask: (taskId: string) => void;
   completeTask: (taskId: string) => void;
+  deleteTask: (taskId: string) => void;
+  batchDeleteTasks: (taskIds: string[]) => void;
+  updateTaskStatus: (taskId: string, status: TaskStatus) => void;
+  batchUpdateTaskStatus: (taskIds: string[], status: TaskStatus) => void;
 
   findNearestMachines: (fieldId: string, workType: WorkType) => Machine[];
   updateMachinePosition: (machineId: string, position: [number, number]) => void;
@@ -263,6 +267,34 @@ export const useAppStore = create<AppState>((set, get) => ({
       ),
       machines: state.machines.map((m) =>
         m.id === task?.machineId ? { ...m, status: 'idle' as const } : m
+      ),
+    }));
+  },
+
+  deleteTask: (taskId) => {
+    set((state) => ({
+      tasks: state.tasks.filter((t) => t.id !== taskId),
+    }));
+  },
+
+  batchDeleteTasks: (taskIds) => {
+    set((state) => ({
+      tasks: state.tasks.filter((t) => !taskIds.includes(t.id)),
+    }));
+  },
+
+  updateTaskStatus: (taskId, status) => {
+    set((state) => ({
+      tasks: state.tasks.map((t) =>
+        t.id === taskId ? { ...t, status } : t
+      ),
+    }));
+  },
+
+  batchUpdateTaskStatus: (taskIds, status) => {
+    set((state) => ({
+      tasks: state.tasks.map((t) =>
+        taskIds.includes(t.id) ? { ...t, status } : t
       ),
     }));
   },
