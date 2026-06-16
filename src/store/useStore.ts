@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Machine, Field, Task, TrackPoint, DailyStats, MachineStatus, WorkType } from '../types';
+import type { Machine, Field, Task, TrackPoint, DailyStats, MachineStatus, MachineType, WorkType } from '../types';
 import { mockMachines } from '../data/machines';
 import { mockFields } from '../data/fields';
 import { mockTasks } from '../data/tasks';
@@ -20,6 +20,13 @@ interface AppState {
   statusFilter: MachineStatus | 'all';
   statsPeriod: 'day' | 'week';
 
+  searchQuery: string;
+  typeFilters: MachineType[];
+  statusAdvancedFilter: MachineStatus | 'all';
+  areaRange: [number | null, number | null];
+  fuelRange: [number | null, number | null];
+  showFilterPanel: boolean;
+
   setSelectedMachine: (id: string | null) => void;
   setSelectedField: (id: string | null) => void;
   setStatusFilter: (status: MachineStatus | 'all') => void;
@@ -27,6 +34,16 @@ interface AppState {
   setShowTaskModal: (show: boolean) => void;
   setActiveTaskId: (id: string | null) => void;
 
+  setSearchQuery: (q: string) => void;
+  toggleTypeFilter: (type: MachineType) => void;
+  setStatusAdvancedFilter: (status: MachineStatus | 'all') => void;
+  setAreaRange: (range: [number | null, number | null]) => void;
+  setFuelRange: (range: [number | null, number | null]) => void;
+  setShowFilterPanel: (show: boolean) => void;
+  clearAllFilters: () => void;
+
+  getFilteredMachines: () => Machine[];
+  getActiveFilterCount: () => number;
   getPeriodStats: () => DailyStats[];
   getPeriodSummary: () => { totalArea: number; totalFuel: number; totalMachines: number; workingMachines: number };
 
@@ -57,12 +74,105 @@ export const useAppStore = create<AppState>((set, get) => ({
   statusFilter: 'all',
   statsPeriod: 'week',
 
+  searchQuery: '',
+  typeFilters: [],
+  statusAdvancedFilter: 'all',
+  areaRange: [null, null],
+  fuelRange: [null, null],
+  showFilterPanel: false,
+
   setSelectedMachine: (id) => set({ selectedMachineId: id }),
   setSelectedField: (id) => set({ selectedFieldId: id }),
   setStatusFilter: (status) => set({ statusFilter: status }),
   setStatsPeriod: (period) => set({ statsPeriod: period }),
   setShowTaskModal: (show) => set({ showTaskModal: show }),
   setActiveTaskId: (id) => set({ activeTaskId: id }),
+
+  setSearchQuery: (q) => set({ searchQuery: q }),
+  toggleTypeFilter: (type) =>
+    set((state) => {
+      const exists = state.typeFilters.includes(type);
+      return {
+        typeFilters: exists
+          ? state.typeFilters.filter((t) => t !== type)
+          : [...state.typeFilters, type],
+      };
+    }),
+  setStatusAdvancedFilter: (status) => set({ statusAdvancedFilter: status }),
+  setAreaRange: (range) => set({ areaRange: range }),
+  setFuelRange: (range) => set({ fuelRange: range }),
+  setShowFilterPanel: (show) => set({ showFilterPanel: show }),
+  clearAllFilters: () =>
+    set({
+      searchQuery: '',
+      typeFilters: [],
+      statusAdvancedFilter: 'all',
+      statusFilter: 'all',
+      areaRange: [null, null],
+      fuelRange: [null, null],
+    }),
+
+  getFilteredMachines: () => {
+    const {
+      machines,
+      statusFilter,
+      searchQuery,
+      typeFilters,
+      statusAdvancedFilter,
+      areaRange,
+      fuelRange,
+    } = get();
+
+    let result = [...machines];
+
+    const activeStatus = statusAdvancedFilter !== 'all' ? statusAdvancedFilter : statusFilter;
+    if (activeStatus !== 'all') {
+      result = result.filter((m) => m.status === activeStatus);
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter(
+        (m) =>
+          m.name.toLowerCase().includes(q) ||
+          m.id.toLowerCase().includes(q) ||
+          m.driver.toLowerCase().includes(q)
+      );
+    }
+
+    if (typeFilters.length > 0) {
+      result = result.filter((m) => typeFilters.includes(m.type));
+    }
+
+    if (areaRange[0] !== null) {
+      result = result.filter((m) => m.todayArea >= areaRange[0]!);
+    }
+    if (areaRange[1] !== null) {
+      result = result.filter((m) => m.todayArea <= areaRange[1]!);
+    }
+
+    if (fuelRange[0] !== null) {
+      result = result.filter((m) => m.fuelLevel >= fuelRange[0]!);
+    }
+    if (fuelRange[1] !== null) {
+      result = result.filter((m) => m.fuelLevel <= fuelRange[1]!);
+    }
+
+    return result;
+  },
+
+  getActiveFilterCount: () => {
+    const { searchQuery, typeFilters, statusAdvancedFilter, statusFilter, areaRange, fuelRange } =
+      get();
+    let count = 0;
+    if (searchQuery.trim()) count++;
+    if (typeFilters.length > 0) count++;
+    if (statusAdvancedFilter !== 'all') count++;
+    else if (statusFilter !== 'all') count++;
+    if (areaRange[0] !== null || areaRange[1] !== null) count++;
+    if (fuelRange[0] !== null || fuelRange[1] !== null) count++;
+    return count;
+  },
 
   getPeriodStats: () => {
     const { statsPeriod, statistics, dailyStatistics } = get();

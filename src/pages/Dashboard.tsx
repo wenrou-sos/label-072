@@ -15,7 +15,7 @@ export const Dashboard = () => {
     setSelectedField,
     startSimulation,
     stopSimulation,
-    statusFilter,
+    getFilteredMachines,
   } = useAppStore();
 
   const [mapCenter, setMapCenter] = useState<[number, number]>([39.905, 116.397]);
@@ -50,9 +50,7 @@ export const Dashboard = () => {
     }
   }, [selectedFieldId, fields]);
 
-  const filteredMachines = statusFilter === 'all'
-    ? machines
-    : machines.filter((m) => m.status === statusFilter);
+  const filteredMachines = getFilteredMachines();
 
   return (
     <div className="h-full flex flex-col gap-4">
