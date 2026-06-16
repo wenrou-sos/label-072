@@ -19,7 +19,7 @@ const statusTabs: { value: TaskStatus | 'all'; label: string }[] = [
 ];
 
 export const TaskPanel = () => {
-  const { tasks, fields, machines, createTask, setShowTaskModal, showTaskModal } = useAppStore();
+  const { tasks, fields, machines, createTask, setShowTaskModal, showTaskModal, acceptTask } = useAppStore();
   const [activeTab, setActiveTab] = useState<TaskStatus | 'all'>('all');
   const [step, setStep] = useState(1);
   const [selectedField, setSelectedField] = useState('');
@@ -46,7 +46,7 @@ export const TaskPanel = () => {
 
   return (
     <>
-      <div className="h-full flex flex-col bg-white rounded-lg shadow-md overflow-hidden">
+      <div className="h-full flex flex-col bg-white rounded-lg shadow-md overflow-hidden relative z-10">
         <div className="p-4 border-b border-gray-100 flex items-center justify-between">
           <h2 className="text-lg font-bold text-gray-800">任务管理</h2>
           <button
@@ -115,7 +115,10 @@ export const TaskPanel = () => {
               </div>
 
               {task.status === 'assigned' && (
-                <button className="mt-2 w-full py-1.5 bg-green-600 text-white text-xs rounded-md hover:bg-green-700 transition-colors">
+                <button
+                  onClick={() => acceptTask(task.id)}
+                  className="mt-2 w-full py-1.5 bg-green-600 text-white text-xs rounded-md hover:bg-green-700 transition-colors"
+                >
                   模拟接单
                 </button>
               )}
@@ -125,7 +128,7 @@ export const TaskPanel = () => {
       </div>
 
       {showTaskModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
           <div className="bg-white rounded-xl w-full max-w-lg mx-4 shadow-2xl">
             <div className="p-4 border-b border-gray-100 flex items-center justify-between">
               <h3 className="text-lg font-bold text-gray-800">创建作业任务</h3>

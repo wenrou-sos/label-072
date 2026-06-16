@@ -52,6 +52,24 @@ export const Dashboard = () => {
 
   const filteredMachines = getFilteredMachines();
 
+  useEffect(() => {
+    if (selectedMachineId) {
+      const isVisible = filteredMachines.some((m) => m.id === selectedMachineId);
+      if (!isVisible) {
+        setSelectedMachine(null);
+      }
+    }
+  }, [filteredMachines, selectedMachineId, setSelectedMachine]);
+
+  useEffect(() => {
+    if (selectedFieldId) {
+      const isVisible = fields.some((f) => f.id === selectedFieldId);
+      if (!isVisible) {
+        setSelectedField(null);
+      }
+    }
+  }, [fields, selectedFieldId, setSelectedField]);
+
   return (
     <div className="h-full flex flex-col gap-4">
       <StatsCards />

@@ -105,7 +105,7 @@ export const MachineList = () => {
   };
 
   return (
-    <div className="h-full flex flex-col bg-white rounded-lg shadow-md overflow-hidden">
+    <div className="h-full flex flex-col bg-white rounded-lg shadow-md overflow-hidden relative z-10">
       <div className="p-4 border-b border-gray-100 flex-shrink-0">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-bold text-gray-800">农机列表</h2>
@@ -209,7 +209,7 @@ export const MachineList = () => {
       </div>
 
       {showFilterPanel && (
-        <div className="p-4 border-b border-gray-100 bg-gray-50 flex-shrink-0 space-y-4">
+        <div className="p-4 border-b border-gray-100 bg-gray-50 flex-shrink-0 space-y-4 relative z-20 shadow-md">
           <div>
             <div className="text-sm font-medium text-gray-700 mb-2">农机类型（可多选）</div>
             <div className="grid grid-cols-2 gap-2">
