@@ -2,21 +2,40 @@ import { useAppStore } from '../../store/useStore';
 import { formatArea, formatFuel } from '../../utils/format';
 import { Activity, Gauge, Droplets, LeafyGreen } from 'lucide-react';
 
-export const StatsCards = () => {
-  const { machines } = useAppStore();
+interface StatsCardsProps {
+  usePeriodStats?: boolean;
+}
 
-  const stats = {
-    total: machines.length,
-    working: machines.filter((m) => m.status === 'working').length,
-    todayArea: machines.reduce((sum, m) => sum + m.todayArea, 0),
-    todayFuel: machines.reduce((sum, m) => sum + m.todayFuel, 0),
-  };
+export const StatsCards = ({ usePeriodStats = false }: StatsCardsProps) => {
+  const { machines, getPeriodSummary, statsPeriod } = useAppStore();
+
+  let stats;
+  if (usePeriodStats) {
+    const summary = getPeriodSummary();
+    stats = {
+      total: summary.totalMachines,
+      working: summary.workingMachines,
+      totalArea: summary.totalArea,
+      totalFuel: summary.totalFuel,
+      areaLabel: statsPeriod === 'day' ? '今日作业面积' : '本周作业面积',
+      fuelLabel: statsPeriod === 'day' ? '今日总油耗' : '本周总油耗',
+    };
+  } else {
+    stats = {
+      total: machines.length,
+      working: machines.filter((m) => m.status === 'working').length,
+      totalArea: machines.reduce((sum, m) => sum + m.todayArea, 0),
+      totalFuel: machines.reduce((sum, m) => sum + m.todayFuel, 0),
+      areaLabel: '今日作业面积',
+      fuelLabel: '今日总油耗',
+    };
+  }
 
   const cards = [
     { label: '在线农机', value: `${stats.total} 台`, icon: Activity, color: 'from-blue-500 to-blue-600' },
     { label: '作业中', value: `${stats.working} 台`, icon: Gauge, color: 'from-green-500 to-green-600' },
-    { label: '今日作业面积', value: formatArea(stats.todayArea), icon: LeafyGreen, color: 'from-emerald-500 to-emerald-600' },
-    { label: '今日总油耗', value: formatFuel(stats.todayFuel), icon: Droplets, color: 'from-amber-500 to-amber-600' },
+    { label: stats.areaLabel, value: formatArea(stats.totalArea), icon: LeafyGreen, color: 'from-emerald-500 to-emerald-600' },
+    { label: stats.fuelLabel, value: formatFuel(stats.totalFuel), icon: Droplets, color: 'from-amber-500 to-amber-600' },
   ];
 
   return (

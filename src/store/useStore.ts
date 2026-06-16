@@ -3,7 +3,7 @@ import type { Machine, Field, Task, TrackPoint, DailyStats, MachineStatus, WorkT
 import { mockMachines } from '../data/machines';
 import { mockFields } from '../data/fields';
 import { mockTasks } from '../data/tasks';
-import { mockStatistics } from '../data/statistics';
+import { mockStatistics, getTodayStats, getWeeklyStats } from '../data/statistics';
 import { generateTrackPoints, getPolygonCenter, calculateDistance } from '../utils/geo';
 
 interface AppState {
@@ -11,6 +11,7 @@ interface AppState {
   fields: Field[];
   tasks: Task[];
   statistics: DailyStats[];
+  dailyStatistics: DailyStats[];
   trackPoints: TrackPoint[];
   selectedMachineId: string | null;
   selectedFieldId: string | null;
@@ -25,6 +26,9 @@ interface AppState {
   setStatsPeriod: (period: 'day' | 'week') => void;
   setShowTaskModal: (show: boolean) => void;
   setActiveTaskId: (id: string | null) => void;
+
+  getPeriodStats: () => DailyStats[];
+  getPeriodSummary: () => { totalArea: number; totalFuel: number; totalMachines: number; workingMachines: number };
 
   createTask: (fieldId: string, workType: WorkType, scheduledTime: string) => void;
   assignTask: (taskId: string, machineId: string) => void;
@@ -44,6 +48,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   fields: mockFields,
   tasks: mockTasks,
   statistics: mockStatistics,
+  dailyStatistics: getTodayStats(),
   trackPoints: [],
   selectedMachineId: null,
   selectedFieldId: null,
@@ -58,6 +63,43 @@ export const useAppStore = create<AppState>((set, get) => ({
   setStatsPeriod: (period) => set({ statsPeriod: period }),
   setShowTaskModal: (show) => set({ showTaskModal: show }),
   setActiveTaskId: (id) => set({ activeTaskId: id }),
+
+  getPeriodStats: () => {
+    const { statsPeriod, statistics, dailyStatistics } = get();
+    return statsPeriod === 'day' ? dailyStatistics : statistics;
+  },
+
+  getPeriodSummary: () => {
+    const stats = get().getPeriodStats();
+    const uniqueDates = new Set(stats.map((s) => s.date));
+    const dateCount = uniqueDates.size;
+
+    const machineTotals = stats.reduce((acc, s) => {
+      if (!acc[s.machineId]) {
+        acc[s.machineId] = { totalArea: 0, totalFuel: 0, hasWork: false };
+      }
+      acc[s.machineId].totalArea += s.totalArea;
+      acc[s.machineId].totalFuel += s.totalFuel;
+      if (s.totalArea > 0) acc[s.machineId].hasWork = true;
+      return acc;
+    }, {} as Record<string, { totalArea: number; totalFuel: number; hasWork: boolean }>);
+
+    let totalArea = 0;
+    let totalFuel = 0;
+    let workingMachines = 0;
+    Object.values(machineTotals).forEach((m) => {
+      totalArea += m.totalArea;
+      totalFuel += m.totalFuel;
+      if (m.hasWork) workingMachines++;
+    });
+
+    return {
+      totalArea: Math.round(totalArea * 10) / 10,
+      totalFuel: Math.round(totalFuel * 10) / 10,
+      totalMachines: Object.keys(machineTotals).length,
+      workingMachines,
+    };
+  },
 
   createTask: (fieldId, workType, scheduledTime) => {
     const newTask: Task = {
